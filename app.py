@@ -1,9 +1,8 @@
-#Add resizing and connect to website
 #Add blurring and connect to website
 #Think of something else to add.
 
 from flask import Flask, request, send_file, jsonify, render_template
-from PIL import Image
+from PIL import Image, ImageFilter
 from io import BytesIO
 import concurrent.futures
 import zipfile
@@ -14,14 +13,16 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-# Image processing function with grayscale + resize
-def process_image(file, resize_dims):
+# Main processing logic: grayscale, resize, blur
+def process_image(file, resize_dims=None, blur_radius=None):
     try:
         img = Image.open(file).convert('L')  # Grayscale
 
         if resize_dims:
-            width, height = resize_dims
-            img = img.resize((width, height))
+            img = img.resize(resize_dims)
+
+        if blur_radius:
+            img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
 
         buffer = BytesIO()
         img.save(buffer, format="PNG")
@@ -36,7 +37,7 @@ def grayscale_batch():
     if not files:
         return jsonify({'error': 'No images uploaded'}), 400
 
-    # Check resize options
+    # Resize
     resize = request.form.get('resize') == 'true'
     resize_dims = None
     if resize:
@@ -47,13 +48,26 @@ def grayscale_batch():
         except (ValueError, TypeError):
             return jsonify({'error': 'Invalid resize dimensions'}), 400
 
+    # Blur
+    blur = request.form.get('blur') == 'true'
+    blur_radius = None
+    if blur:
+        try:
+            blur_radius = float(request.form.get('blur_radius', 1.0))
+        except ValueError:
+            return jsonify({'error': 'Invalid blur radius'}), 400
+
+    # Process each image
     results = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(process_image, file, resize_dims) for file in files]
+        futures = [
+            executor.submit(process_image, file, resize_dims, blur_radius)
+            for file in files
+        ]
         for future in concurrent.futures.as_completed(futures):
             results.append(future.result())
 
-    # Package into zip
+    # Package into ZIP
     zip_buffer = BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
         for filename, data in results:
