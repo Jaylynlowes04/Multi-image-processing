@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Batch Grayscale & Resize Image Processor</title>
+  <style>
+    body {
+      background: linear-gradient(to bottom, #FFA500, #FF8C00);
+      color: #0057B8;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    button {
+      background-color: #0057B8;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #003F7F;
+    }
+    #loading {
+      display: none;
+      margin-top: 10px;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h2>Upload Multiple Images</h2>
+  <input type="file" id="imageInput" accept="image/*" multiple><br><br>
+
+  <label><input type="checkbox" id="resizeCheckbox"> Resize Images</label><br>
+  <input type="number" id="resizeWidth" placeholder="Width" min="1">
+  <input type="number" id="resizeHeight" placeholder="Height" min="1"><br><br>
+
+  <button id="convertButton" onclick="uploadImages()">Convert & Download ZIP</button>
+  <div id="loading">Processing images...</div>
+
+  <script>
+    async function uploadImages() {
+      const input = document.getElementById('imageInput');
+      const files = input.files;
+      const button = document.getElementById('convertButton');
+      const loading = document.getElementById('loading');
+
+      const resize = document.getElementById('resizeCheckbox').checked;
+      const width = document.getElementById('resizeWidth').value;
+      const height = document.getElementById('resizeHeight').value;
+
+      if (!files.length) {
+        alert("Please select at least one image.");
+        return;
+      }
+
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('images', file);
+      }
+
+      formData.append('resize', resize);
+      if (resize) {
+        formData.append('width', width);
+        formData.append('height', height);
+      }
+
+      try {
+        button.disabled = true;
+        loading.style.display = 'block';
+
+        const response = await fetch('/grayscale', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) throw new Error('Batch processing failed');
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'processed_images.zip';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        loading.style.display = 'none';
+        button.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
