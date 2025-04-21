@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Batch Grayscale & Resize Image Processor</title>
+  <title>Grayscale, Resize & Blur Image Processor</title>
   <style>
     body {
       background: linear-gradient(to bottom, #FFA500, #FF8C00);
@@ -27,6 +27,11 @@
     button:hover {
       background-color: #003F7F;
     }
+    input[type="number"] {
+      width: 80px;
+      padding: 5px;
+      margin: 5px;
+    }
     #loading {
       display: none;
       margin-top: 10px;
@@ -35,12 +40,18 @@
   </style>
 </head>
 <body>
-  <h2>Upload Multiple Images</h2>
+  <h2>Upload Images for Grayscale, Resize, and Blur</h2>
+
   <input type="file" id="imageInput" accept="image/*" multiple><br><br>
 
+  <!-- Resize Options -->
   <label><input type="checkbox" id="resizeCheckbox"> Resize Images</label><br>
   <input type="number" id="resizeWidth" placeholder="Width" min="1">
   <input type="number" id="resizeHeight" placeholder="Height" min="1"><br><br>
+
+  <!-- Blur Options -->
+  <label><input type="checkbox" id="blurCheckbox"> Apply Blur</label><br>
+  <input type="number" id="blurRadius" placeholder="Blur Radius" min="0" step="0.1"><br><br>
 
   <button id="convertButton" onclick="uploadImages()">Convert & Download ZIP</button>
   <div id="loading">Processing images...</div>
@@ -56,6 +67,9 @@
       const width = document.getElementById('resizeWidth').value;
       const height = document.getElementById('resizeHeight').value;
 
+      const blur = document.getElementById('blurCheckbox').checked;
+      const blurRadius = document.getElementById('blurRadius').value;
+
       if (!files.length) {
         alert("Please select at least one image.");
         return;
@@ -66,10 +80,17 @@
         formData.append('images', file);
       }
 
+      // Resize options
       formData.append('resize', resize);
       if (resize) {
         formData.append('width', width);
         formData.append('height', height);
+      }
+
+      // Blur options
+      formData.append('blur', blur);
+      if (blur) {
+        formData.append('blur_radius', blurRadius);
       }
 
       try {
@@ -81,7 +102,7 @@
           body: formData
         });
 
-        if (!response.ok) throw new Error('Batch processing failed');
+        if (!response.ok) throw new Error('Image processing failed.');
 
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
@@ -95,8 +116,8 @@
       } catch (err) {
         alert(err.message);
       } finally {
-        loading.style.display = 'none';
         button.disabled = false;
+        loading.style.display = 'none';
       }
     }
   </script>
