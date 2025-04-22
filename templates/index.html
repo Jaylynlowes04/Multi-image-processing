@@ -2,19 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Grayscale, Resize & Blur Image Processor</title>
+  <title>Image Processor – Two Image Configs</title>
   <style>
     body {
       background: linear-gradient(to bottom, #FFA500, #FF8C00);
       color: #0057B8;
-      text-align: center;
       font-family: Arial, sans-serif;
-      height: 100vh;
+      text-align: center;
       margin: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      padding: 20px;
+    }
+    .image-config {
+      border: 1px solid #0057B8;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background: #fff;
+    }
+    input[type="number"], input[type="file"] {
+      width: 80%;
+      padding: 5px;
+      margin: 5px;
     }
     button {
       background-color: #0057B8;
@@ -24,102 +32,112 @@
       margin-top: 10px;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #003F7F;
+    #gallery {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
     }
-    input[type="number"] {
-      width: 80px;
-      padding: 5px;
+    .preview-set {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .preview-set img {
+      max-width: 300px;
       margin: 5px;
-    }
-    #loading {
-      display: none;
-      margin-top: 10px;
-      font-style: italic;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     }
   </style>
 </head>
 <body>
-  <h2>Upload Images for Grayscale, Resize, and Blur</h2>
 
-  <input type="file" id="imageInput" accept="image/*" multiple><br><br>
+  <h2>Upload and Process Two Images</h2>
 
-  <!-- Resize Options -->
-  <label><input type="checkbox" id="resizeCheckbox"> Resize Images</label><br>
-  <input type="number" id="resizeWidth" placeholder="Width" min="1">
-  <input type="number" id="resizeHeight" placeholder="Height" min="1"><br><br>
+  <div class="image-config">
+    <h3>Image 1</h3>
+    <input type="file" id="image1" accept="image/*"><br>
+    <label><input type="checkbox" id="grayscale1" checked> Grayscale</label><br>
+    <label><input type="checkbox" id="resize1"> Resize</label><br>
+    <input type="number" id="resizeWidth1" placeholder="Width">
+    <input type="number" id="resizeHeight1" placeholder="Height"><br>
+    <label><input type="checkbox" id="blur1"> Blur</label><br>
+    <input type="number" id="blurRadius1" placeholder="Blur Radius" min="0" step="0.1">
+  </div>
 
-  <!-- Blur Options -->
-  <label><input type="checkbox" id="blurCheckbox"> Apply Blur</label><br>
-  <input type="number" id="blurRadius" placeholder="Blur Radius" min="0" step="0.1"><br><br>
+  <div class="image-config">
+    <h3>Image 2</h3>
+    <input type="file" id="image2" accept="image/*"><br>
+    <label><input type="checkbox" id="grayscale2" checked> Grayscale</label><br>
+    <label><input type="checkbox" id="resize2"> Resize</label><br>
+    <input type="number" id="resizeWidth2" placeholder="Width">
+    <input type="number" id="resizeHeight2" placeholder="Height"><br>
+    <label><input type="checkbox" id="blur2"> Blur</label><br>
+    <input type="number" id="blurRadius2" placeholder="Blur Radius" min="0" step="0.1">
+  </div>
 
-  <button id="convertButton" onclick="uploadImages()">Convert & Download ZIP</button>
-  <div id="loading">Processing images...</div>
+  <button onclick="uploadImages()">Process Images</button>
+
+  <div id="gallery"></div>
 
   <script>
     async function uploadImages() {
-      const input = document.getElementById('imageInput');
-      const files = input.files;
-      const button = document.getElementById('convertButton');
-      const loading = document.getElementById('loading');
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
 
-      const resize = document.getElementById('resizeCheckbox').checked;
-      const width = document.getElementById('resizeWidth').value;
-      const height = document.getElementById('resizeHeight').value;
+      for (let i = 1; i <= 2; i++) {
+        const fileInput = document.getElementById(`image${i}`);
+        const file = fileInput.files[0];
+        if (!file) continue;
 
-      const blur = document.getElementById('blurCheckbox').checked;
-      const blurRadius = document.getElementById('blurRadius').value;
-
-      if (!files.length) {
-        alert("Please select at least one image.");
-        return;
-      }
-
-      const formData = new FormData();
-      for (const file of files) {
+        const formData = new FormData();
         formData.append('images', file);
-      }
+        formData.append('grayscale', document.getElementById(`grayscale${i}`).checked);
+        formData.append('resize', document.getElementById(`resize${i}`).checked);
+        if (document.getElementById(`resize${i}`).checked) {
+          formData.append('width', document.getElementById(`resizeWidth${i}`).value);
+          formData.append('height', document.getElementById(`resizeHeight${i}`).value);
+        }
+        formData.append('blur', document.getElementById(`blur${i}`).checked);
+        if (document.getElementById(`blur${i}`).checked) {
+          formData.append('blur_radius', document.getElementById(`blurRadius${i}`).value);
+        }
 
-      // Resize options
-      formData.append('resize', resize);
-      if (resize) {
-        formData.append('width', width);
-        formData.append('height', height);
-      }
+        const previewSet = document.createElement('div');
+        previewSet.className = 'preview-set';
 
-      // Blur options
-      formData.append('blur', blur);
-      if (blur) {
-        formData.append('blur_radius', blurRadius);
-      }
+        const rawImg = document.createElement('img');
+        rawImg.src = URL.createObjectURL(file);
+        rawImg.alt = 'Raw Image';
+        previewSet.appendChild(rawImg);
 
-      try {
-        button.disabled = true;
-        loading.style.display = 'block';
+        try {
+          const response = await fetch('/grayscale', {
+            method: 'POST',
+            body: formData
+          });
 
-        const response = await fetch('/grayscale', {
-          method: 'POST',
-          body: formData
-        });
+          if (!response.ok) throw new Error('Processing failed');
 
-        if (!response.ok) throw new Error('Image processing failed.');
+          const blob = await response.blob();
+          const processedUrl = URL.createObjectURL(blob);
 
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'processed_images.zip';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        button.disabled = false;
-        loading.style.display = 'none';
+          const finalImg = document.createElement('img');
+          finalImg.src = processedUrl;
+          finalImg.alt = 'Processed Image';
+          previewSet.appendChild(finalImg);
+        } catch (err) {
+          const errorText = document.createElement('p');
+          errorText.textContent = `Error: ${err.message}`;
+          previewSet.appendChild(errorText);
+        }
+
+        gallery.appendChild(previewSet);
       }
     }
   </script>
+
 </body>
 </html>

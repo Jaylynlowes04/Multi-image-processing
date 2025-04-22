@@ -1,11 +1,6 @@
-#Add blurring and connect to website
-#Think of something else to add.
-
-from flask import Flask, request, send_file, jsonify, render_template
+from flask import Flask, request, send_file, render_template, jsonify
 from PIL import Image, ImageFilter
 from io import BytesIO
-import concurrent.futures
-import zipfile
 
 app = Flask(__name__)
 
@@ -13,10 +8,12 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-# Main processing logic: grayscale, resize, blur
-def process_image(file, resize_dims=None, blur_radius=None):
+def process_image(file, grayscale=True, resize_dims=None, blur_radius=None):
     try:
-        img = Image.open(file).convert('L')  # Grayscale
+        img = Image.open(file)
+
+        if grayscale:
+            img = img.convert('L')
 
         if resize_dims:
             img = img.resize(resize_dims)
@@ -25,59 +22,47 @@ def process_image(file, resize_dims=None, blur_radius=None):
             img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
 
         buffer = BytesIO()
-        img.save(buffer, format="PNG")
+        img.save(buffer, format='PNG')
         buffer.seek(0)
-        return file.filename, buffer.read()
+        return buffer
     except Exception as e:
-        return file.filename, f"error: {str(e)}"
+        raise RuntimeError(f"Processing error: {e}")
 
 @app.route('/grayscale', methods=['POST'])
-def grayscale_batch():
-    files = request.files.getlist('images')
-    if not files:
-        return jsonify({'error': 'No images uploaded'}), 400
+def grayscale_route():
+    if 'images' not in request.files:
+        return jsonify({"error": "No image uploaded."}), 400
 
-    # Resize
-    resize = request.form.get('resize') == 'true'
-    resize_dims = None
-    if resize:
-        try:
-            width = int(request.form.get('width'))
-            height = int(request.form.get('height'))
-            resize_dims = (width, height)
-        except (ValueError, TypeError):
-            return jsonify({'error': 'Invalid resize dimensions'}), 400
+    image = request.files['images']
+    if image.filename == '':
+        return jsonify({"error": "Empty filename."}), 400
 
-    # Blur
-    blur = request.form.get('blur') == 'true'
-    blur_radius = None
-    if blur:
-        try:
-            blur_radius = float(request.form.get('blur_radius', 1.0))
-        except ValueError:
-            return jsonify({'error': 'Invalid blur radius'}), 400
+    try:
+        grayscale = request.form.get('grayscale', 'true') == 'true'
+        resize = request.form.get('resize', 'false') == 'true'
+        resize_dims = None
 
-    # Process each image
-    results = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(process_image, file, resize_dims, blur_radius)
-            for file in files
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            results.append(future.result())
+        if resize:
+            try:
+                width = int(request.form.get('width'))
+                height = int(request.form.get('height'))
+                resize_dims = (width, height)
+            except Exception:
+                return jsonify({"error": "Invalid resize dimensions."}), 400
 
-    # Package into ZIP
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-        for filename, data in results:
-            if isinstance(data, bytes):
-                zip_file.writestr(f"processed_{filename}", data)
-            else:
-                zip_file.writestr(f"{filename}_error.txt", data)
+        blur = request.form.get('blur', 'false') == 'true'
+        blur_radius = None
+        if blur:
+            try:
+                blur_radius = float(request.form.get('blur_radius', '0'))
+            except Exception:
+                return jsonify({"error": "Invalid blur radius."}), 400
 
-    zip_buffer.seek(0)
-    return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name='processed_images.zip')
+        processed_img = process_image(image, grayscale, resize_dims, blur_radius)
+        return send_file(processed_img, mimetype='image/png')
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
