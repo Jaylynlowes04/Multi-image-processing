@@ -1,8 +1,11 @@
 from flask import Flask, request, send_file, render_template, jsonify
 from PIL import Image, ImageFilter
 from io import BytesIO
+import socket
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
 @app.route('/')
 def index():
@@ -59,7 +62,16 @@ def grayscale_route():
                 return jsonify({"error": "Invalid blur radius."}), 400
 
         processed_img = process_image(image, grayscale, resize_dims, blur_radius)
-        return send_file(processed_img, mimetype='image/png')
+
+        hostname = socket.gethostname()
+        ip_address = socket.gethostbyname(hostname)
+        log_message = f"Task executed on {hostname} ({ip_address})"
+        logging.info(log_message)
+
+        # Add hostname/ip to header
+        response = send_file(processed_img, mimetype='image/png')
+        response.headers['X-Worker-Info'] = f"Processed by {hostname} ({ip_address})"
+        return response
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
