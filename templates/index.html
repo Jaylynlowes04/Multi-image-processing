@@ -29,6 +29,17 @@
     button:hover {
       background-color: #003F7F;
     }
+    .remove-button {
+      background-color: #FF6347;
+      margin-top: 5px;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .remove-button:hover {
+      background-color: #cc2900;
+    }
     input[type="number"], input[type="file"] {
       margin: 5px;
     }
@@ -40,6 +51,7 @@
       width: 300px;
       text-align: left;
       background: white;
+      position: relative;
     }
     #loading {
       display: none;
@@ -82,10 +94,19 @@
         Height: <input type="number" id="height-${imageCounter}" min="1"><br><br>
 
         <label><input type="checkbox" id="blur-${imageCounter}"> Blur</label><br>
-        Radius: <input type="number" id="blur-radius-${imageCounter}" min="0" step="0.1"><br>
+        Radius: <input type="number" id="blur-radius-${imageCounter}" min="0" step="0.1"><br><br>
+
+        <button class="remove-button" onclick="removeImageInput('image-block-${imageCounter}')">🗑️ Remove</button>
       `;
 
       container.appendChild(block);
+    }
+
+    function removeImageInput(blockId) {
+      const block = document.getElementById(blockId);
+      if (block) {
+        block.remove();
+      }
     }
 
     async function uploadImages() {
