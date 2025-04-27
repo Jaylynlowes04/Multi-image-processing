@@ -1,84 +1,95 @@
-from flask import Flask, request, send_file, render_template, jsonify
+from flask import Flask, request, send_file, jsonify, render_template
 from PIL import Image, ImageFilter
 from io import BytesIO
-import socket
-import logging
+import concurrent.futures
+import zipfile
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    return render_template('home.html')  
 
 @app.route('/process')
-def index():
-    return render_template('index.html')
+def process():
+    return render_template('index.html')  
 
-def process_image(file, grayscale=True, resize_dims=None, blur_radius=None):
+def process_single_image(file, options):
     try:
         img = Image.open(file)
 
-        if grayscale:
+        if options.get("grayscale"):
             img = img.convert('L')
 
-        if resize_dims:
-            img = img.resize(resize_dims)
+        if options.get("resize"):
+            width = options.get("width")
+            height = options.get("height")
+            if width and height:
+                img = img.resize((width, height))
 
-        if blur_radius:
-            img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+        if options.get("blur"):
+            radius = options.get("blur_radius", 1.0)
+            img = img.filter(ImageFilter.GaussianBlur(radius=radius))
 
         buffer = BytesIO()
-        img.save(buffer, format='PNG')
+        img.save(buffer, format="PNG")
         buffer.seek(0)
-        return buffer
-    except Exception as e:
-        raise RuntimeError(f"Processing error: {e}")
+        return file.filename, buffer.read()
 
+    except Exception as e:
+        return file.filename, f"error: {str(e)}"
+
+# Grayscale, Resize, Blur Route
 @app.route('/grayscale', methods=['POST'])
-def grayscale_route():
-    if 'images' not in request.files:
-        return jsonify({"error": "No image uploaded."}), 400
+def grayscale_batch():
+    files = request.files.getlist('images')
+    if not files:
+        return jsonify({'error': 'No images uploaded'}), 400
 
-    image = request.files['images']
-    if image.filename == '':
-        return jsonify({"error": "Empty filename."}), 400
+    results = []
 
-    try:
-        grayscale = request.form.get('grayscale', 'true') == 'true'
-        resize = request.form.get('resize', 'false') == 'true'
-        resize_dims = None
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
 
-        if resize:
-            try:
-                width = int(request.form.get('width'))
-                height = int(request.form.get('height'))
-                resize_dims = (width, height)
-            except Exception:
-                return jsonify({"error": "Invalid resize dimensions."}), 400
+        for file in files:
+            filename = file.filename
 
-        blur = request.form.get('blur', 'false') == 'true'
-        blur_radius = None
-        if blur:
-            try:
-                blur_radius = float(request.form.get('blur_radius', '0'))
-            except Exception:
-                return jsonify({"error": "Invalid blur radius."}), 400
+            options = {
+                "grayscale": request.form.get(f"grayscale-{filename}") == 'true',
+                "resize": request.form.get(f"resize-{filename}") == 'true',
+                "blur": request.form.get(f"blur-{filename}") == 'true',
+            }
 
-        processed_img = process_image(image, grayscale, resize_dims, blur_radius)
+            if options["resize"]:
+                try:
+                    options["width"] = int(request.form.get(f"width-{filename}", 0))
+                    options["height"] = int(request.form.get(f"height-{filename}", 0))
+                except (ValueError, TypeError):
+                    options["width"] = None
+                    options["height"] = None
 
-        hostname = socket.gethostname()
-        ip_address = socket.gethostbyname(hostname)
-        log_message = f"Task executed on {hostname} ({ip_address})"
-        logging.info(log_message)
+            if options["blur"]:
+                try:
+                    options["blur_radius"] = float(request.form.get(f"blur-radius-{filename}", 1.0))
+                except (ValueError, TypeError):
+                    options["blur_radius"] = 1.0
 
-        # Add hostname/ip to header
-        response = send_file(processed_img, mimetype='image/png')
-        response.headers['X-Worker-Info'] = f"Processed by {hostname} ({ip_address})"
-        return response
+            futures.append(executor.submit(process_single_image, file, options))
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        for future in concurrent.futures.as_completed(futures):
+            results.append(future.result())
 
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        for filename, data in results:
+            if isinstance(data, bytes):
+                zip_file.writestr(f"processed_{filename}", data)
+            else:
+                zip_file.writestr(f"{filename}_error.txt", data)
+
+    zip_buffer.seek(0)
+    return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name='processed_images.zip')
+
+# Run App
 if __name__ == '__main__':
     app.run(debug=True)
