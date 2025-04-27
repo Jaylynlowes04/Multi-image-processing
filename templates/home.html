@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>About Us - Image Processor</title>
+  <style>
+    body {
+      background: linear-gradient(to bottom, #FFA500, #FF8C00);
+      color: #0057B8;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+    header {
+      padding: 30px;
+    }
+    main {
+      flex: 1;
+      padding: 20px;
+      max-width: 800px;
+    }
+    button {
+      background-color: #0057B8;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      margin-top: 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #003F7F;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Trojan Image Processor</h1>
+  </header>
+
+  <main>
+    <h2>What The Projects About</h2>
+    <p>
+      This project is a web-based image processor that allows users to upload multiple images and apply grayscale conversion, resizing, and blurring effects easily.
+      Using multithreading on the backend, images are processed efficiently and returned in a single downloadable ZIP file.
+    </p>
+
+    <h2>Features</h2>
+    <ul style="list-style: none; padding: 0;">
+      <li>* Batch image upload</li>
+      <li>* Grayscale conversion</li>
+      <li>* Custom resizing</li>
+      <li>* Adjustable blur effects</li>
+      <li>* Fast multithreaded processing</li>
+      <li>* Download all processed images in a ZIP archive</li>
+    </ul>
+
+    
+
+    <button onclick="window.location.href='/process'">Start Processing Images</button>
+  </main>
+</body>
+</html>
