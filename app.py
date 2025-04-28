@@ -31,13 +31,26 @@ def grayscale_batch():
     tasks = []
     for file in files:
         file_bytes = file.read()
+        
+        width_raw = request.form.get(f'width-{file.filename}')
+        height_raw = request.form.get(f'height-{file.filename}')
+        blur_radius_raw = request.form.get(f'blur-radius-{file.filename}')
+
+        width = int(width_raw) if width_raw and width_raw.isdigit() else 0
+        height = int(height_raw) if height_raw and height_raw.isdigit() else 0
+        
+        try:
+            blur_radius = float(blur_radius_raw) if blur_radius_raw else 1.0
+        except ValueError:
+            blur_radius = 1.0
+
         options = {
             'grayscale': request.form.get(f'grayscale-{file.filename}') == 'true',
             'resize': request.form.get(f'resize-{file.filename}') == 'true',
             'blur': request.form.get(f'blur-{file.filename}') == 'true',
-            'width': int(request.form.get(f'width-{file.filename}', 0)),
-            'height': int(request.form.get(f'height-{file.filename}', 0)),
-            'blur_radius': float(request.form.get(f'blur-radius-{file.filename}', 1.0))
+            'width': width,
+            'height': height,
+            'blur_radius': blur_radius
         }
         task = process_image.delay(file_bytes, options)
         tasks.append((file.filename, task))
